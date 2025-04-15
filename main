@@ -1,0 +1,193 @@
+import pygame
+import sys
+import os
+import platform
+import random
+
+# 動態設置 SDL 驅動
+system = platform.system()
+if system == "Linux":
+    os.environ['SDL_VIDEODRIVER'] = 'x11'  # Replit 或 Linux 用 X11
+elif system == "Windows":
+    os.environ['SDL_VIDEODRIVER'] = 'windows'  # Windows 用 windows 驅動
+elif system == "Darwin":  # macOS
+    os.environ['SDL_VIDEODRIVER'] = 'cocoa'  # macOS 用 cocoa 驅動
+else:
+    os.environ['SDL_VIDEODRIVER'] = 'dummy'  # 其他環境用 dummy（無圖形）
+
+# 初始化 Pygame
+try:
+    pygame.init()
+except pygame.error as e:
+    print(f"Failed to initialize Pygame: {e}")
+    sys.exit(1)
+
+# 設置畫面尺寸
+print("Setting up display...")
+SCREEN_WIDTH = 160
+SCREEN_HEIGHT = 144
+pygame.display.init()
+
+try:
+    screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+    print("Display set up successfully")
+except pygame.error as e:
+    print(f"Error setting up display: {e}")
+    pygame.quit()
+    sys.exit(1)
+pygame.display.set_caption("三國志 1992 - 主公選擇")
+
+# 檢查檔案是否存在
+def check_file_exists(filename):
+    if not os.path.exists(filename):
+        print(f"Error: File '{filename}' not found!")
+        pygame.quit()
+        sys.exit(1)
+
+# 載入背景地圖
+check_file_exists("map_background_144.png")
+map_background = pygame.image.load("map_background_144.png").convert()
+
+# 載入城池圖標（主公佔領時使用）
+check_file_exists("city_circle.png")
+city_circle = pygame.image.load("city_circle.png").convert_alpha()  # 馬騰
+city_circle = pygame.transform.scale(city_circle, (8, 8))
+
+check_file_exists("city_diamond.png")
+city_diamond = pygame.image.load("city_diamond.png").convert_alpha()  # 袁紹
+city_diamond = pygame.transform.scale(city_diamond, (8, 8))
+
+check_file_exists("city_triangle.png")
+city_triangle = pygame.image.load("city_triangle.png").convert_alpha()  # 張魯
+city_triangle = pygame.transform.scale(city_triangle, (8, 8))
+
+check_file_exists("city_square.png")
+city_square = pygame.image.load("city_square.png").convert_alpha()  # 劉備
+city_square = pygame.transform.scale(city_square, (8, 8))
+
+check_file_exists("city_star.png")
+city_star = pygame.image.load("city_star.png").convert_alpha()  # 孫權
+city_star = pygame.transform.scale(city_star, (8, 8))
+
+check_file_exists("city_cross.png")
+city_cross = pygame.image.load("city_cross.png").convert_alpha()  # 劉表
+city_cross = pygame.transform.scale(city_cross, (8, 8))
+
+check_file_exists("city_hexagon.png")
+city_hexagon = pygame.image.load("city_hexagon.png").convert_alpha()  # 劉璋
+city_hexagon = pygame.transform.scale(city_hexagon, (8, 8))
+
+# 載入游標圖標
+check_file_exists("cursor.png")
+cursor = pygame.image.load("cursor.png").convert_alpha()
+cursor = pygame.transform.scale(cursor, (8, 8))
+
+# 城池數據（使用地圖上的小白點座標）
+cities = [
+    {"name": "并州", "position": (30, 10), "jp_name": "ヘイシュウ", "occupied": True, "owner": "袁紹", "neighbors": ["冀州", "雍州"]},
+    {"name": "冀州", "position": (80, 10), "jp_name": "キシュウ", "occupied": True, "owner": "袁紹", "neighbors": ["并州", "幽州", "司州"]},
+    {"name": "幽州", "position": (130, 10), "jp_name": "ユウシュウ", "occupied": True, "owner": "袁紹", "neighbors": ["冀州", "青州"]},
+    {"name": "涼州", "position": (10, 46), "jp_name": "リョウシュウ", "occupied": True, "owner": "馬騰", "neighbors": ["雍州"]},
+    {"name": "雍州", "position": (30, 46), "jp_name": "ヨウシュウ", "occupied": False, "owner": None, "neighbors": ["涼州", "并州", "司州", "漢中"]},
+    {"name": "司州", "position": (60, 46), "jp_name": "シシュウ", "occupied": False, "owner": None, "neighbors": ["冀州", "雍州", "兗州", "新野"]},
+    {"name": "兗州", "position": (100, 46), "jp_name": "エンシュウ", "occupied": False, "owner": None, "neighbors": ["司州", "青州", "予州"]},
+    {"name": "青州", "position": (130, 46), "jp_name": "セイシュウ", "occupied": True, "owner": "袁紹", "neighbors": ["幽州", "兗州", "徐州"]},
+    {"name": "漢中", "position": (10, 82), "jp_name": "カンチュウ", "occupied": True, "owner": "張魯", "neighbors": ["雍州", "新野", "益州"]},
+    {"name": "新野", "position": (50, 82), "jp_name": "シンヤ", "occupied": False, "owner": None, "neighbors": ["司州", "漢中", "予州", "荊州"]},
+    {"name": "予州", "position": (90, 82), "jp_name": "ヨシュウ", "occupied": True, "owner": "劉備", "neighbors": ["兗州", "新野", "徐州", "予章"]},
+    {"name": "徐州", "position": (130, 82), "jp_name": "ジョシュウ", "occupied": False, "owner": None, "neighbors": ["青州", "予州", "揚州"]},
+    {"name": "益州", "position": (10, 118), "jp_name": "エキシュウ", "occupied": True, "owner": "劉璋", "neighbors": ["漢中", "荊州", "南蠻"]},
+    {"name": "荊州", "position": (50, 118), "jp_name": "ケイシュウ", "occupied": True, "owner": "劉表", "neighbors": ["新野", "益州", "予章", "南蠻"]},
+    {"name": "予章", "position": (90, 118), "jp_name": "ヨショウ", "occupied": True, "owner": "孫權", "neighbors": ["予州", "荊州", "揚州", "交州"]},
+    {"name": "揚州", "position": (130, 118), "jp_name": "ヨウシュウ", "occupied": True, "owner": "孫權", "neighbors": ["徐州", "予章", "南海"]},
+    {"name": "南蠻", "position": (30, 130), "jp_name": "ナンバン", "occupied": False, "owner": None, "neighbors": ["益州", "荊州", "交州"]},
+    {"name": "交州", "position": (80, 130), "jp_name": "コウシュウ", "occupied": False, "owner": None, "neighbors": ["南蠻", "予章", "南海"]},
+    {"name": "南海", "position": (130, 130), "jp_name": "ナンカイ", "occupied": False, "owner": None, "neighbors": ["交州", "揚州"]},
+]
+
+# 游標相關變數
+current_city_index = 0
+cursor_pos = cities[current_city_index]["position"]
+
+# 設置字體（用於顯示城池資訊）
+font = pygame.font.Font(None, 20)
+
+# 主遊戲循環
+running = True
+selected_lord = None
+while running:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+        elif event.type == pygame.KEYDOWN:
+            print(f"Key pressed: {event.key}")
+            if event.key == pygame.K_RIGHT:
+                current_city_index = (current_city_index + 1) % len(cities)
+                cursor_pos = cities[current_city_index]["position"]
+                print(f"Moved right to city: {cities[current_city_index]['name']}")
+            elif event.key == pygame.K_LEFT:
+                current_city_index = (current_city_index - 1) % len(cities)
+                cursor_pos = cities[current_city_index]["position"]
+                print(f"Moved left to city: {cities[current_city_index]['name']}")
+            elif event.key == pygame.K_RETURN:
+                selected_city = cities[current_city_index]
+                if selected_lord is None:  # 還沒選擇主公
+                    if selected_city["occupied"]:
+                        selected_lord = selected_city["owner"]
+                        print(f"你選擇了主公：{selected_lord}，起始城池：{selected_city['name']}")
+                    else:
+                        print(f"{selected_city['name']} 未被佔領，請選擇其他城池！")
+                else:  # 已選擇主公，進入戰鬥模式
+                    current_city = cities[current_city_index]
+                    if not current_city["occupied"]:
+                        # 檢查是否是相鄰城池
+                        player_city = next(city for city in cities if city["owner"] == selected_lord)
+                        if current_city["name"] in player_city["neighbors"]:
+                            # 簡單的隨機戰鬥
+                            if random.random() < 0.5:  # 50% 勝率
+                                print(f"戰鬥勝利！你佔領了 {current_city['name']}！")
+                                current_city["occupied"] = True
+                                current_city["owner"] = selected_lord
+                            else:
+                                print(f"戰鬥失敗！{current_city['name']} 防守成功。")
+                        else:
+                            print(f"{current_city['name']} 不在相鄰範圍內，無法攻打！")
+                    else:
+                        print(f"{current_city['name']} 已被佔領！")
+
+    # 繪製背景（包含原始小白點）
+    screen.blit(map_background, (0, 0))
+
+    # 繪製城池（被佔領的城池用新圖標覆蓋小白點）
+    for city in cities:
+        if city["occupied"]:
+            if city["owner"] == "馬騰":
+                screen.blit(city_circle, city["position"])
+            elif city["owner"] == "袁紹":
+                screen.blit(city_diamond, city["position"])
+            elif city["owner"] == "張魯":
+                screen.blit(city_triangle, city["position"])
+            elif city["owner"] == "劉備":
+                screen.blit(city_square, city["position"])
+            elif city["owner"] == "孫權":
+                screen.blit(city_star, city["position"])
+            elif city["owner"] == "劉表":
+                screen.blit(city_cross, city["position"])
+            elif city["owner"] == "劉璋":
+                screen.blit(city_hexagon, city["position"])
+
+    # 繪製游標
+    screen.blit(cursor, cursor_pos)
+
+    # 顯示城池資訊（在畫面底部）
+    current_city = cities[current_city_index]
+    info_text = f"城池：{current_city['name']}  主公：{current_city['owner'] if current_city['occupied'] else '無'}"
+    text_surface = font.render(info_text, True, (255, 255, 255))
+    screen.blit(text_surface, (10, 120))
+
+    # 更新畫面
+    pygame.display.flip()
+
+# 退出遊戲
+pygame.quit()
+sys.exit()
